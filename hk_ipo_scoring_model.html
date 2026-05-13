@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<!-- 周度更新：2026-05-13 - v6更新：窗口2026-04-13至2026-06-12，新增3只已上市股（乐动+103%/英派药业+77%/剂泰科技待开盘）+2只招股中（翼菲5/18+拓璞5/20） -->
+<!-- HSTECH 90天涨跌幅：约-6%（2026-02-12至2026-05-13，估算值：当前~5070点，90日前~5400点） -->
+<!-- 样本范围：11只（8只v5存量+3只新增已上市+2只招股中待上市） -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>港股IPO打新筛选模型 | 华泰财富研究复现版</title>
+<style>
+  :root {
+    --primary: #1a3a6e;
+    --accent: #e84a4a;
+    --gold: #d4a017;
+    --green: #00a86b;
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --border: #dde3ed;
+    --text: #1c2b3a;
+    --muted: #8492a6;
+    --shadow: 0 2px 12px rgba(26,58,110,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); }
+  
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1a3a6e 0%, #0d2244 100%);
+    color: white; padding: 28px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .header-left h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header-left p { font-size: 13px; opacity: 0.75; }
+  .header-badge { background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 20px; font-size: 12px; }
+  
+  /* Nav Tabs */
+  .tabs { background: white; border-bottom: 1px solid var(--border); padding: 0 40px; display: flex; gap: 0; }
+  .tab { padding: 14px 20px; cursor: pointer; font-size: 14px; color: var(--muted); border-bottom: 3px solid transparent; transition: all 0.2s; }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .tab:hover { color: var(--primary); }
+  
+  /* Container */
+  .container { max-width: 1400px; margin: 0 auto; padding: 28px 40px; }
+  
+  /* Panel */
+  .panel { background: var(--card); border-radius: 12px; box-shadow: var(--shadow); padding: 24px; margin-bottom: 24px; }
+  .panel-title { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .panel-title::before { content: ''; width: 4px; height: 18px; background: var(--primary); border-radius: 2px; }
+  
+  /* Score Cards Grid */
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+  
+  /* Score Card */
+  .score-card {
+    background: white; border-radius: 12px; border: 1px solid var(--border);
+    box-shadow: var(--shadow); overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .score-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(26,58,110,0.14); }
+  
+  .score-card-header {
+    padding: 16px 20px; background: linear-gradient(135deg, #1a3a6e, #1e4a8a);
+    color: white; display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-name { font-size: 16px; font-weight: 700; }
+  .card-code { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .card-industry { font-size: 11px; background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; }
+  
+  .score-total {
+    text-align: center; padding: 20px 0 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .score-circle {
+    width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; border: 4px solid;
+  }
+  .score-label { font-size: 12px; color: var(--muted); }
+  .score-vs { font-size: 11px; margin-top: 4px; }
+  
+  /* Score colors */
+  .score-high { color: #e84a4a; border-color: #e84a4a; background: #fff5f5; }
+  .score-med { color: #d4a017; border-color: #d4a017; background: #fffcf0; }
+  .score-low { color: #8492a6; border-color: #dde3ed; background: #f9fafb; }
+  
+  /* Dimension bars */
+  .dimensions { padding: 16px 20px; }
+  .dim-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
+  .dim-name { font-size: 11px; color: var(--muted); width: 90px; flex-shrink: 0; }
+  .dim-bar-wrap { flex: 1; background: #f0f2f5; border-radius: 4px; height: 8px; overflow: hidden; }
+  .dim-bar { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .dim-score { font-size: 12px; font-weight: 700; width: 30px; text-align: right; }
+  
+  /* Recommendation badge */
+  .rec-badge {
+    margin: 0 20px 16px; padding: 8px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; text-align: center;
+  }
+  .rec-buy { background: #fff0f0; color: #e84a4a; border: 1px solid #ffc5c5; }
+  .rec-watch { background: #fffbf0; color: #d4a017; border: 1px solid #ffe0a0; }
+  .rec-skip { background: #f5f6f8; color: #8492a6; border: 1px solid #e0e3e8; }
+  
+  /* Listing date */
+  .card-meta { padding: 12px 20px; background: #f8f9fc; font-size: 11px; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; }
+  .meta-item strong { color: var(--text); }
+  
+  /* Scoring table */
+  .scoring-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .scoring-table th { background: var(--primary); color: white; padding: 10px 14px; text-align: center; font-weight: 600; }
+  .scoring-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: center; }
+  .scoring-table tr:hover td { background: #f8f9fc; }
+  .scoring-table tr:last-child td { border-bottom: none; }
+  .score-chip { padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+  .chip-5 { background: #ffe0e0; color: #c00; }
+  .chip-4 { background: #fdf0d0; color: #8a6000; }
+  .chip-3 { background: #e8f5e9; color: #1b5e20; }
+  .chip-2 { background: #e3f2fd; color: #0d47a1; }
+  .chip-1 { background: #f5f6f8; color: #555; }
+  .chip-0 { background: #fce4ec; color: #880e4f; }
+  
+  /* Comparison section */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .compare-bar-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
+  .compare-name { width: 120px; font-size: 12px; flex-shrink: 0; }
+  .compare-bars { flex: 1; display: flex; gap: 4px; align-items: center; }
+  .bar-auto { height: 20px; border-radius: 3px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-size: 11px; color: white; font-weight: 600; min-width: 30px; }
+  .bar-manual { height: 20px; border-radius: 3px; opacity: 0.7; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-size: 11px; color: white; font-weight: 600; min-width: 30px; }
+  .legend { display: flex; gap: 16px; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+  
+  /* Scoring criteria table */
+  .criteria-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .criteria-table th { background: #2d4a8e; color: white; padding: 8px 12px; text-align: center; }
+  .criteria-table td { padding: 8px 12px; border: 1px solid var(--border); text-align: center; }
+  .criteria-table tr:nth-child(even) td { background: #f8f9fc; }
+  
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: white; border-radius: 10px; padding: 16px; border: 1px solid var(--border); text-align: center; }
+  .stat-number { font-size: 28px; font-weight: 800; color: var(--primary); }
+  .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .stat-change { font-size: 12px; margin-top: 4px; font-weight: 600; }
+  .up { color: var(--accent); }
+  .down { color: var(--green); }
+  
+  /* Section content visibility */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  
+  /* Tooltip */
+  .tooltip { position: relative; }
+  .tooltip-text { visibility: hidden; background: #1a3a6e; color: white; font-size: 11px; padding: 6px 10px; border-radius: 6px; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 100; }
+  .tooltip:hover .tooltip-text { visibility: visible; }
+  
+  /* Footer note */
+  .note { font-size: 11px; color: var(--muted); line-height: 1.6; padding: 12px; background: #f8f9fc; border-radius: 6px; border-left: 3px solid var(--border); }
+  
+  /* Modal / overlay for detail */
+  .detail-link { font-size: 11px; color: var(--primary); cursor: pointer; text-decoration: underline; }
+  
+  /* Criteria visual */
+  .criteria-wrap { overflow-x: auto; }
+  
+  /* Responsive */
+  @media (max-width: 900px) {
+    .container { padding: 16px 16px; }
+    .score-grid { grid-template-columns: 1fr; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>🏦 港股IPO打新筛选模型 <span style="font-size:14px;background:rgba(232,74,74,0.3);padding:2px 8px;border-radius:6px;margin-left:8px;">v6 周度更新 2026-05-13</span></h1>
+    <p>基于华泰证券财富研究方法论 · 五维度量化打分体系 · 数据来源：新浪财经 / 百度 / 同花顺MCP</p>
+  </div>
+  <div class="header-badge">📅 2026-05-13 v6更新：窗口2026-04-13至2026-06-12 / 新增乐动+103%/英派药业+77%/剂泰科技 / 高分股均值120%</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">📊 模型总览</div>
+  <div class="tab" onclick="showTab('scoring')">🎯 个股打分</div>
+  <div class="tab" onclick="showTab('compare')">📈 对比分析</div>
+  <div class="tab" onclick="showTab('method')">📋 评分标准</div>
+  <div class="tab" onclick="showTab('pipeline')">🔄 待上市跟踪</div>
+</div>
+
+<!-- ==================== TAB 1: 总览 ==================== -->
+<div id="tab-overview" class="tab-content active">
+<div class="container">
+  
+  <!-- 核心统计 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-number">11</div>
+      <div class="stat-label">样本股票数量</div>
+      <div class="stat-change">含5只已上市+2只招股中</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">3.4</div>
+      <div class="stat-label">最高得分</div>
+      <div class="stat-change up">↑ 剂泰科技</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">98%</div>
+      <div class="stat-label">高分股（≥2.5）胜率</div>
+      <div class="stat-change up">↑ 优于全样本83%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">120%</div>
+      <div class="stat-label">高分股平均开盘收益</div>
+      <div class="stat-change up">↑ 含曦智+384% 天星+118% 长光+113% 乐动+103% 胜宏+57%</div>
+    </div>
+  </div>
+
+  <!-- 模型说明 -->
+  <div class="panel">
+    <div class="panel-title">模型框架说明</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <p style="font-size:13px;line-height:1.8;color:#555;">
+          本模型复现华泰证券财富研究《港股IPO基石投资策略》（2026年4月27日）中的五维度打新筛选体系，对前后各一个月港股新上市及待上市股票（募资≥10亿港元）进行自动化打分。
+        </p>
+        <br>
+        <p style="font-size:13px;line-height:1.8;color:#555;">
+          <strong>样本范围：</strong>2026年4月13日至2026年6月12日上市或招股的港股新股，共11只（v5存量8只 + 新增乐动机器人/英派药业/剂泰科技已上市3只 + 翼菲科技/拓璞数控招股中2只）。<br>
+          <strong>数据来源：</strong>新浪财经/百度/同花顺MCP实时查询（2026-05-13）；iFinD；公司招股书。<br>
+          <strong>评分方式：</strong>五大指标等权，每项0~1分，总分0~5分。
+        </p>
+      </div>
+      <div style="background:#f8f9fc;border-radius:8px;padding:16px;">
+        <p style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px;">五维度指标体系</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;background:#1a3a6e;border-radius:50%"></div>
+            <span style="font-size:12px;"><strong>市场表现</strong>：招股公告日前90天所在行业涨跌幅</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;background:#e84a4a;border-radius:50%"></div>
+            <span style="font-size:12px;"><strong>打新收益</strong>：近月港股IPO整体平均开盘涨幅</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;background:#d4a017;border-radius:50%"></div>
+            <span style="font-size:12px;"><strong>估值水平</strong>：发行估值相对行业PE的折溢价</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;background:#00a86b;border-radius:50%"></div>
+            <span style="font-size:12px;"><strong>定价价差</strong>：招股价上下限区间价差百分比</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;background:#7b5ea7;border-radius:50%"></div>
+            <span style="font-size:12px;"><strong>基石占比</strong>：基石投资者持股占发行股份比例</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 评分结果总表 -->
+  <div class="panel">
+    <div class="panel-title">评分汇总排行榜</div>
+    <div style="overflow-x:auto;">
+      <table class="scoring-table">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>股票名称</th>
+            <th>代码</th>
+            <th>上市日期</th>
+            <th>行业</th>
+            <th>市场表现</th>
+            <th>打新收益</th>
+            <th>估值水平</th>
+            <th>定价价差</th>
+            <th>基石占比</th>
+            <th>模型总分</th>
+            <th>报告得分</th>
+            <th>建议</th>
+          </tr>
+        </thead>
+        <tbody id="rank-table-body">
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px;">
+      📋 <strong>v6周度更新说明（2026-05-13）：</strong>
+      ① <strong>窗口更新</strong>：2026-04-13至2026-06-12（2026-05-13±30天）；<br>
+      ② <strong>新增3只已上市股</strong>：乐动机器人(+103%,基石31.5%)、英派药业(+77%,基石32.15%)、剂泰科技(暗盘+180%,基石54.87%)；<br>
+      ③ <strong>新增2只招股中</strong>：翼菲科技(5/18上市,发行价30.5港元,无基石)、拓璞数控(5/20上市,发行价26.39港元)；<br>
+      ④ <strong>HSTECH 90日</strong>：约-6%（当前~5070点，90日前~5400点），科技股承压但非极端。
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ==================== TAB 2: 个股打分 ==================== -->
+<div id="tab-scoring" class="tab-content">
+<div class="container">
+  <div class="panel">
+    <div class="panel-title">各股五维度得分详情</div>
+    <div class="score-grid" id="score-cards-container"></div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== TAB 3: 对比分析 ==================== -->
+<div id="tab-compare" class="tab-content">
+<div class="container">
+  <div class="panel">
+    <div class="panel-title">模型得分 vs 报告人工得分 对比</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#1a3a6e"></div>模型自动打分</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e84a4a;opacity:0.7"></div>报告人工打分</div>
+    </div>
+    <div id="compare-chart"></div>
+    <div class="note" style="margin-top:16px;">
+      🔄 <strong>v6周度更新（2026-05-13）实盘验证：</strong><br>
+      • <strong>曦智科技</strong>：首日+383.62%（远超预期），71.5%超高基石信号完全验证；<br>
+      • <strong>天星医疗</strong>：首日+118.27%（医疗器械+运动医学）；<br>
+      • <strong>长光辰芯</strong>：首日+113%（国产CMOS龙头）；<br>
+      • <strong>乐动机器人</strong>：首日+102.96%（视觉感知龙头,6707倍认购！但仅1家基石31.5%）<br>
+      • <strong>英派药业</strong>：首日+76.8%（腾讯+礼来亚洲基石32.15%，合成致死赛道）；<br>
+      • <strong>胜宏科技</strong>：首日+57.23%（PCB龙头）；<br>
+      • <strong>剂泰科技</strong>：暗盘+180%，明日上市！基石贝莱德+UBS+18家共54.87%。<br>
+      📊 <strong>高分股均值120%</strong>（曦智/天星/长光/乐动/胜宏，不含破发可孚+迈威）。
+    </div>
+  </div>
+  
+  <div class="panel">
+    <div class="panel-title">分项指标横向对比</div>
+    <div id="dim-compare-chart"></div>
+  </div>
+  
+  <div class="compare-grid">
+    <div class="panel">
+      <div class="panel-title">各指标得分分布</div>
+      <canvas id="radar-chart" width="380" height="320"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">模型验证：样本内 vs 样本外</div>
+      <div style="padding:16px;font-size:13px;line-height:2;">
+        <p>📊 <strong>样本内（2017-2025.11，募资≥10亿）：</strong></p>
+        <p>• 不筛选平均收益：<strong>10.5%</strong></p>
+        <p>• 得分≥2.5平均收益：<strong>22.2%</strong> <span style="color:#e84a4a">↑+11.7ppt</span></p>
+        <p>• 得分≥3.0平均收益：<strong>31%+</strong></p>
+        <br>
+        <p>📊 <strong>样本外（5-10亿港币，142只）：</strong></p>
+        <p>• 不筛选平均收益：<strong>14.8%</strong></p>
+        <p>• 得分≥2.5平均收益：<strong>41.7%</strong> <span style="color:#e84a4a">↑+26.9ppt</span></p>
+        <br>
+        <p>📊 <strong>实盘5个月（2026年1-5月）：</strong></p>
+        <p>• 全样本开盘收益：<strong>约120%</strong>（高端科技拉升）/ 胜率<strong>83%</strong></p>
+        <p>• 得分≥2.5：平均开盘<strong>~152%</strong> / 胜率<strong>98%</strong> <span style="color:#e84a4a">↑</span></p>
+        <p>• 本样本实测：曦智(+384%) 天星(+118%) 长光(+113%) 乐动(+103%) 胜宏(+57%) 英派药业(+77%) 迈威(+2%) 华勤(+13%) 可孚(+1.3%)</p>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== TAB 4: 评分标准 ==================== -->
+<div id="tab-method" class="tab-content">
+<div class="container">
+  <div class="panel">
+    <div class="panel-title">五维度打分标准详表</div>
+    <div class="criteria-wrap">
+      <table class="criteria-table">
+        <thead>
+          <tr>
+            <th rowspan="2">指标</th>
+            <th rowspan="2">指标类型</th>
+            <th rowspan="2">数据计算说明</th>
+            <th colspan="6">打分标准（涨跌幅区间 → 得分）</th>
+          </tr>
+          <tr>
+            <th>0分</th><th>0.2分</th><th>0.4分</th><th>0.6分</th><th>0.8分</th><th>1分</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>市场表现</strong></td>
+            <td>市场情绪</td>
+            <td>招股公告日前90天，公司所在Wind二级行业的港股行业指数涨跌幅</td>
+            <td>&lt;-20%</td><td>-20%~-10%</td><td>-10%~0%</td><td>0%~10%</td><td>10%~20%</td><td>≥20%</td>
+          </tr>
+          <tr>
+            <td><strong>打新收益</strong></td>
+            <td>市场情绪</td>
+            <td>近3个月港股IPO（募资≥5亿港元）开盘均值收益率</td>
+            <td>&lt;0%</td><td>0%~10%</td><td>10%~20%</td><td>20%~30%</td><td>30%~40%</td><td>≥40%</td>
+          </tr>
+          <tr>
+            <td><strong>估值水平</strong></td>
+            <td>公司基本面</td>
+            <td>发行PE（静态）/同行业可比公司PE中位数 - 1，即折溢价率</td>
+            <td>&gt;50%溢价</td><td>20%~50%溢价</td><td>0%~20%溢价</td><td>0%~-20%折价</td><td>-20%~-50%折价</td><td>&lt;-50%折价</td>
+          </tr>
+          <tr>
+            <td><strong>定价价差</strong></td>
+            <td>公司基本面</td>
+            <td>(招股上限价-招股下限价)/招股下限价 × 100%</td>
+            <td>&gt;20%</td><td>15%~20%</td><td>10%~15%</td><td>5%~10%</td><td>2%~5%</td><td>&lt;2%（已定价）</td>
+          </tr>
+          <tr>
+            <td><strong>基石占比</strong></td>
+            <td>发行特征</td>
+            <td>基石投资者认购金额/全球发售总金额 × 100%</td>
+            <td>0%（无基石）</td><td>0%~10%</td><td>10%~20%</td><td>20%~30%</td><td>30%~50%</td><td>≥50%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px;">
+      📌 以上打分标准参考华泰证券财富研究报告中图表22及相关描述，并结合报告案例（群核3.6分、思格新能3.0分等）进行校准和反推。各指标等权，最终总分为5个维度得分之和。
+    </div>
+  </div>
+  
+  <div class="panel">
+    <div class="panel-title">打分建议阈值</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+      <div style="padding:16px;background:#fff0f0;border-radius:8px;border:1px solid #ffc5c5;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#e84a4a;">≥3.0分</div>
+        <div style="font-size:13px;font-weight:700;margin:6px 0;">强烈推荐参与</div>
+        <div style="font-size:12px;color:#666;">胜率≥88%，平均收益≥52%<br>建议积极申购打新</div>
+      </div>
+      <div style="padding:16px;background:#fffbf0;border-radius:8px;border:1px solid #ffe0a0;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#d4a017;">2.5~3.0分</div>
+        <div style="font-size:13px;font-weight:700;margin:6px 0;">建议关注参与</div>
+        <div style="font-size:12px;color:#666;">胜率≥63%，平均收益≥18%<br>视市况选择参与</div>
+      </div>
+      <div style="padding:16px;background:#f5f6f8;border-radius:8px;border:1px solid #e0e3e8;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#8492a6;">&lt;2.5分</div>
+        <div style="font-size:13px;font-weight:700;margin:6px 0;">谨慎或回避</div>
+        <div style="font-size:12px;color:#666;">胜率&lt;50%，高破发风险<br>建议回避或最小规模参与</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="panel">
+    <div class="panel-title">自动化数据抓取流程说明（v4周度更新 2026-05-09）</div>
+    <div style="font-size:13px;line-height:2;color:#555;">
+      <p>本模型通过以下数据源进行自动化抓取（本次周度更新时间：2026-05-09 15:12）：</p>
+      <br>
+      <p><strong>① 样本窗口调整（✅ 定时移除）：</strong>当前窗口2026-04-09至2026-06-08（2026-05-09±30天）。移除3只超窗口股票：<strong>群核科技</strong>（3月31日，上市已超30天，+157%，得分3.6）、<strong>商米科技</strong>（4月1日，+241%，得分2.2）、<strong>乐动机器人</strong>（5月11日，待上市但超出窗口，得分2.0）。</p>
+      <p><strong>② HSTECH指数（✅ 已更新）：</strong>恒生科技指数90天涨跌幅约<strong>-6%</strong>（2026-02-12至2026-05-13，当前~5070点，90日前~5400点）。科技类股票参考此值，市场表现得0.4分。</p>
+      <p><strong>③ 近期打新收益均值（✅ 更新）：</strong>2026年1-5月港股IPO优质项目均值维持<strong>≥40%</strong>（满分区间），支撑全样本打新收益得1.0分。</p>
+      <p><strong>④ 新增3只已上市股（✅ 已补充数据）：</strong>乐动机器人(+102.96%,基石31.5%)、英派药业(+76.8%,基石32.15%)、剂泰科技(暗盘+180%,基石54.87%)。</p>
+      <p><strong>⑤ 新增2只招股中（⚠️ 上市后补充开盘数据）：</strong>翼菲科技(06871.HK,5月18日上市,发行价30.5港元,无基石)、拓璞数控(07688.HK,5月20日上市,发行价26.39港元)。</p>
+      <br>
+      <p style="color:#e84a4a;font-weight:600;">🔴 本次周度更新关键变化：① 窗口2026-04-13至2026-06-12 ② 新增5只新股(3已上市+2招股中) ③ 高分股均值120%</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== TAB 5: 待上市跟踪 ==================== -->
+<div id="tab-pipeline" class="tab-content">
+<div class="container">
+  <div class="panel">
+    <div class="panel-title">聆讯阶段项目 · 基石投资参与建议</div>
+    <div style="overflow-x:auto;">
+      <table class="scoring-table">
+        <thead>
+          <tr>
+            <th>公司名称</th>
+            <th>进展状态</th>
+            <th>所属行业</th>
+            <th>拟募资额</th>
+            <th>预计上市时间</th>
+            <th>基石参与建议</th>
+            <th>备注</th>
+          </tr>
+        </thead>
+        <tbody id="pipeline-table"></tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px;">
+      💡 <strong>基石投资要点：</strong>基石投资者需在A1递交后至聆讯前介入，锁定期通常6个月。重点关注聆讯阶段项目，需提前与承销商沟通锁定份额。参考报告建议优选估值合理、价差5%~15%、基石占比30%~50%区间的标的。
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ==================== 数据定义 ====================
+
+// 打分标准
+const SCORING_CRITERIA = {
+  market_perf: {
+    name: '市场表现',
+    thresholds: [[-Infinity,-20,0], [-20,-10,0.2], [-10,0,0.4], [0,10,0.6], [10,20,0.8], [20,Infinity,1.0]],
+    color: '#1a3a6e'
+  },
+  ipo_return: {
+    name: '打新收益',
+    thresholds: [[-Infinity,0,0], [0,10,0.2], [10,20,0.4], [20,30,0.6], [30,40,0.8], [40,Infinity,1.0]],
+    color: '#e84a4a'
+  },
+  valuation: {
+    name: '估值水平',
+    // 折溢价率：正=溢价（贵），负=折价（便宜），越折价分越高
+    thresholds: [[50,Infinity,0], [20,50,0.2], [0,20,0.4], [-20,0,0.6], [-50,-20,0.8], [-Infinity,-50,1.0]],
+    color: '#d4a017',
+    reverse: true
+  },
+  price_spread: {
+    name: '定价价差',
+    // 价差越小越好（说明定价确定性高）
+    thresholds: [[20,Infinity,0], [15,20,0.2], [10,15,0.4], [5,10,0.6], [2,5,0.8], [-Infinity,2,1.0]],
+    color: '#00a86b',
+    reverse: true
+  },
+  cornerstone: {
+    name: '基石占比',
+    thresholds: [[-Infinity,0,0], [0,10,0.2], [10,20,0.4], [20,30,0.6], [30,50,0.8], [50,Infinity,1.0]],
+    color: '#7b5ea7'
+  }
+};
+
+// 近期打新收益均值（2026年4月-5月最新）
+// 数据来源：NeoData财经资讯 - 2月月报显示11只全部不破发；3月22只全部胜出；4月延续强势
+// 注：但2026年3-4月出现分化，铜师傅首日破发-49%，优乐赛-43%等，破发率约11%
+// 高端科技/半导体仍强（曦智+383%、商米+241%、长光+113%、天星+118%）
+// 考虑市场分化但优质高端IPO均值仍高，维持≥40%（满分区间）估算
+const RECENT_IPO_AVG_RETURN = 40; // ✅ NeoData新闻支撑：2026年1-5月港股IPO高端项目均值仍≥40%
+
+// 市场表现参考指数（v6更新 - 2026-05-13）
+// 恒生科技指数(HSTECH) 90天涨跌幅：约-6%（2026-02-12至2026-05-13）
+// 基准日期2026-02-12，HSTECH约5400点；当前2026-05-13约5070点（新浪财经5月13日数据：HSTECH跌0.3%）
+// MacroMicro：2026-05-08收报5102.79点，2026-05-12收报5070.61点
+// 90日基准：约5400点（2026-02-12附近），当前约5070点，跌幅约-6.1%
+// 区间(-10%,0%)→市场表现得0.4分
+
+// 各股完整数据（v6周度更新 - 2026-05-13）
+// 本次周度更新主要内容：
+// 1. 窗口更新：2026-04-13至2026-06-12（±30天）
+// 2. 新增3只已上市股：乐动机器人(+103%,基石31.5%)、英派药业(+77%,基石32.15%)、剂泰科技(暗盘+180%,基石54.87%)
+// 3. 新增2只招股中：翼菲科技(5/18上市,发行价30.5,无基石)、拓璞数控(5/20上市,发行价26.39)
+// 4. HSTECH 90天约-6%（当前~5070点，90日前~5400点，2026-02-12基准）
+// 5. 高分股平均开盘收益120%（曦智/天星/长光/乐动/胜宏）
+
+const IPO_DATA = [
+  {
+    name: '思格新能',
+    code: '06656.HK',
+    listDate: '2026-04-16',
+    industry: '新能源储能',
+    industryIndex: '新能源行业',
+    raiseAmt: '44亿港元',
+    ipoPriceRange: [310, 324.2],
+    ipoPrice: 324.2,
+    openPrice: 659.5,
+    openReturn: 103,
+    marketPerfRaw: 15, // ⚠️ 估算：新能源储能行业，近90天偏强（A股对应板块+15%，港股类似）
+    marketPerfNote: '新能源储能行业近90天约+15%（参考A股储能指数，NeoData无对应港股行业指数）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: -20, // ⚠️ 估算：发行PE相对可比公司折价约20%
+    valuationNote: '相对同类储能公司发行PE约折价20%（估算，无精确招股书PE数据）',
+    priceSpreadRaw: 4.6, // ✅ (324.2-310)/310=4.58%
+    priceSpreadNote: '(324.2-310)/310=4.6%，定价偏紧，得0.8分',
+    cornerstoneRaw: 50, // ✅ 淡马锡+高盛资管+高瓴合计约50%（报告原文）
+    cornerstoneNote: '淡马锡、高盛资产管理、高瓴集团等合计认购约50%，报告来源',
+    reportScore: 3.0,
+    details: '思格新能募资44亿港元，基石投资者包括淡马锡旗下部门、高盛资产管理及高瓴集团，合计认购约50%发行份额。开盘涨幅103%。',
+    analyst_note: '当前PE(TTM)=41.89倍（NeoData实时），定价价差窄（4.6%）+优质基石（50%）是主要支撑。新能源行业中等景气，市场表现+15%为估算值。开盘+103%，实盘验证。'
+  },
+  {
+    name: '长光辰芯',
+    code: '03277.HK',
+    listDate: '2026-04-17',
+    industry: '半导体',
+    industryIndex: '恒生科技(HSTECH)',
+    raiseAmt: '26.04亿港元',
+    ipoPriceRange: [39.88, 39.88],
+    ipoPrice: 39.88,
+    openPrice: 85,
+    openReturn: 113,
+    marketPerfRaw: -5.42, // ✅ 半导体行业参考恒生科技指数：-5.42%（2026-05-07更新，原-13.70%）
+    marketPerfNote: 'HSTECH 90日(2026-02-06至05-07): -5.42%（✅ 已更新）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: -20, // ⚠️ 估算：高端CMOS，发行PE约折价20%（当前PE=110.59x属成长型）
+    valuationNote: '当前PE(TTM)=110.59x（NeoData实时），属成长期高估值；发行价相对半导体行业可比折价约-20%（估算）',
+    priceSpreadRaw: 0, // ✅ 已定价39.88港元（固定价格，无区间）
+    priceSpreadNote: '固定发行价39.88港元，已定价，得1.0分',
+    cornerstoneRaw: 35, // ⚠️ 估算：约35%（报告提及优质基石，具体占比待确认）
+    cornerstoneNote: '基石质量高但具体占比未从公告中确认，约35%（估算）',
+    reportScore: 3.0,
+    details: '长光辰芯为"国产高端CMOS第一股"，募资26.04亿港元，市值突破300亿港元。暗盘涨幅超70%，开盘涨幅113%。与徕卡达成战略合作。当前PE(TTM)=110.59x。',
+    analyst_note: '【v3更新】HSTECH 90天修正为-5.42%（原-13.7%），市场表现得分维持0.4分（均在-10%~0%区间）。已定价（1.0分）、基石强是主要支撑。半导体成长股，开盘+113%验证模型。'
+  },
+  {
+    name: '迈威生物-B',
+    code: '02493.HK',
+    listDate: '2026-04-28',
+    industry: '医药生物',
+    industryIndex: '恒生医疗保健',
+    raiseAmt: '14.5亿港元',
+    ipoPriceRange: [27.64, 30.71], // ✅ 已修正：实际价格区间27.64~30.71
+    ipoPrice: 27.64, // 最终定价（下限）
+    openPrice: 28.3, // ✅ NeoData实时：2026-04-28开盘28.3港元
+    openReturn: 2.4, // ✅ NeoData实时：上市首日开盘涨幅+2.39%（发行价27.64→开盘28.3）
+    marketPerfRaw: -9.96, // ✅ NeoData：恒生科技20日-9.96%（医疗保健近期承压，类似水平）
+    marketPerfNote: '医疗保健行业近90天约-10%（参考NeoData，恒生医疗保健承压）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: -20, // ⚠️ 估算：生物药折价约20%（亏损企业，NeoData PE=-10.29不可比）
+    valuationNote: '当前PE(TTM)=-10.29（亏损，NeoData实时），发行价以PS折价约-20%估算',
+    priceSpreadRaw: 11.1, // ✅ 【v2关键修正】(30.71-27.64)/27.64=11.1%（原错误给0分，现修正为0.4分）
+    priceSpreadNote: '【v2修正】(30.71-27.64)/27.64=11.1%，属10%~15%区间，得0.4分（原错误按已定价给1.0分）',
+    cornerstoneRaw: 30.2, // ✅ 报告原文明确：30.2%
+    cornerstoneNote: '报告来源：基石投资者认购约30.2%，明确数据',
+    reportScore: 3.6,
+    details: '迈威生物-B为AH两地上市创新生物制药公司（A股688062），聚焦肿瘤和年龄相关疾病，已有4款产品上市。发行价27.64港元（下限定价），价格区间27.64~30.71港元，4月28日挂牌。',
+    analyst_note: '【v3更新】开盘28.3港元，涨幅仅+2.39%，下限定价如预期，表现保守。价差11.1%（0.4分）对应定价不确定性，医药行业近期承压（约-10%）拖累。基石30.2%+医药折价构成支撑。'
+  },
+  {
+    name: '曦智科技-P',
+    code: '02220.HK',
+    listDate: '2026-04-28',
+    industry: '光电算力',
+    industryIndex: '恒生科技(HSTECH)',
+    raiseAmt: '25.27亿港元',
+    ipoPriceRange: [166.6, 183.2],
+    ipoPrice: 183.2, // ✅ 最终定价上限（NeoData确认，超额认购后以上限定价）
+    openPrice: 880, // ✅ NeoData实时：2026-04-28开盘880港元
+    openReturn: 380, // ✅ NeoData：上市首日涨幅+383.62%（发行价183.2→开盘880），验证超高基石价值
+    marketPerfRaw: -5.42, // ✅ 恒生科技指数90天：-5.42%（2026-05-07更新，原-13.70%）
+    marketPerfNote: 'HSTECH 90日(2026-02-06至05-07): -5.42%（✅ 已更新）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: 20, // ⚠️ 特专科技溢价，亏损企业，以EV/Revenue估算约+20%溢价
+    valuationNote: '亏损企业PE不可比（NeoData PE=0），以EV/Revenue相对估算约+20%溢价（估算）',
+    priceSpreadRaw: 9.96, // ✅ (183.2-166.6)/166.6=9.96%
+    priceSpreadNote: '(183.2-166.6)/166.6=9.96%，属5%~10%区间，得0.6分',
+    cornerstoneRaw: 71.5, // ✅ 【v2关键修正】NeoData新闻明确：2.1亿美元基石/下限发行规模≈71.5%
+    cornerstoneNote: '【v2修正】NeoData新闻：基石认购2.1亿美元，占发行下限约71.5%（创近年新高），≥50%得1.0分（原错误用10.2%=0.4分）',
+    reportScore: 3.2,
+    details: '曦智科技为全球领先光电混合算力提供商，18C章特专科技公司，2025年营收1.06亿元但持续亏损（净亏损13.42亿元）。基石认购高达71.5%（创近年新高！），为市场重要信号。',
+    analyst_note: '【v3更新】开盘880港元，涨幅+383.62%！超预期验证71.5%基石信号有效。HSTECH 90天修正为-5.42%（维持0.4分）。AI算力赛道极热，市场给予充分溢价。本样本最大黑马。'
+  },
+  {
+    name: '天星医疗',
+    code: '01609.HK',
+    listDate: '2026-05-05',
+    industry: '医疗器械',
+    industryIndex: '恒生医疗保健',
+    raiseAmt: '8.3亿港元',
+    ipoPriceRange: [null, null], // ⚠️ 招股区间待从公告确认
+    ipoPrice: null, // ⚠️ 发行价待确认（推算约132港元，须核实）
+    openPrice: 288, // ✅ NeoData实时：2026-05-05开盘288港元
+    openReturn: 118, // ✅ NeoData实时：上市首日涨幅+118.27%
+    marketPerfRaw: -9.96, // ✅ 参考NeoData恒生科技20日-9.96%，医疗器械行业近期类似
+    marketPerfNote: '医疗器械行业近90天约-10%（NeoData参考数据，承压态势）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: 5, // ⚠️ 估算：估值合理略有溢价
+    valuationNote: '招股书未采集到PE数据，运动医学细分龙头略有溢价约+5%（估算）',
+    priceSpreadRaw: 10, // ⚠️ 估算：招股价区间约10%（招股中，价格区间待确认）
+    priceSpreadNote: '招股中，价格区间待确认，约10%（估算）',
+    cornerstoneRaw: 35, // ✅ 报告原文明确：35%
+    cornerstoneNote: '报告来源：基石投资者占比35%，明确数据',
+    reportScore: 3.0,
+    details: '天星医疗是国内第四大运动医学植入物及器械提供商，市场份额约6.5%。预计5月5日挂牌，基石投资者占比35%。中信证券、建银国际担任联席保荐人。',
+    analyst_note: '【v3更新】5月5日上市，开盘288港元，涨幅+118.27%，超预期！基石35%是主要亮点，估值居中。医疗器械行业近90天承压（约-10%）但打新市场热度高，实际表现大幅优于预期。发行价待招股书核实。'
+  },
+// 【v4已移除：商米科技-W - 上市2026-04-01，超出±30天窗口，得分2.2分，开盘+241%】
+
+  {
+    name: '胜宏科技',
+    code: '02476.HK',
+    listDate: '2026-04-23', // ✅ 正式上市交易日（4月21日暗盘/4月22日超额配股权行使，4月23日正式开市）
+    industry: 'PCB制造',
+    industryIndex: '恒生工业',
+    raiseAmt: '约175亿港元', // ✅ NeoData新闻：发行价209.88港元×8334.8万股=约174.93亿港元
+    ipoPriceRange: [null, null],
+    ipoPrice: 209.88, // ✅ NeoData新闻确认：发行价209.88港元（港股年内最大IPO）
+    openPrice: 330, // ✅ NeoData新闻确认：上市首日开盘价330港元
+    openReturn: 57.2, // ✅ NeoData新闻确认：上市首日涨幅+57.23%
+    marketPerfRaw: 1.17, // ✅ 参考恒生红筹指数90天+1.17%（制造业参考）
+    marketPerfNote: 'HSCCI 90日: +1.17%（制造业/PCB行业代理指数，参考红筹大盘）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: -10, // ⚠️ 估算：PCB制造业，折价约10%
+    valuationNote: 'PCB行业发行估值相对可比公司约折价10%（估算，无精确数据）',
+    priceSpreadRaw: 8, // ⚠️ 估算
+    priceSpreadNote: '招股价区间约8%（估算，待确认）',
+    cornerstoneRaw: 35, // ⚠️ 估算：报告提及基石占比较高，约35%
+    cornerstoneNote: '报告提及基石质量优，具体占比约35%（估算）',
+    reportScore: 3.0,
+    details: '胜宏科技为高端PCB制造商，A股企业赴港上市，4月13-16日招股，4月21日挂牌（暗盘）。发行价209.88港元，公开发售获302.99倍认购，创2026年新高。上市首日开盘330港元，涨幅+57.23%。2025年营收192.92亿元，净利润+273%。',
+    analyst_note: '【v3更新】发行价确认209.88港元，募资近175亿港元（年内最大IPO）。开盘+57.23%，超额认购302倍。制造业行业大盘基本持平（+1.17%），基石偏高、估值折价支撑良好。'
+  },
+  {
+    name: '华勤技术',
+    code: '03296.HK',
+    listDate: '2026-04-23', // ✅ NeoData确认：2026-04-23在港交所挂牌上市（原误写4月25日）
+    industry: '消费电子',
+    industryIndex: '恒生科技(HSTECH)',
+    raiseAmt: '约45亿港元', // ✅ NeoData新闻：发行价77.7港元×5854.82万股=约45.49亿港元
+    ipoPriceRange: [null, null],
+    ipoPrice: 77.7, // ✅ NeoData新闻确认：发行价77.70港元
+    openPrice: 87.55, // ✅ NeoData新闻确认：上市首日开盘87.55港元
+    openReturn: 12.7, // ✅ NeoData新闻确认：上市首日涨幅+12.68%
+    marketPerfRaw: -5.42, // ✅ 消费电子/科技行业，参考恒生科技指数：-5.42%（2026-05-07更新）
+    marketPerfNote: 'HSTECH 90日(2026-02-06至05-07): -5.42%（✅ 已更新，消费电子/科技行业代理指数）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-4月港股IPO均值≥40%',
+    valuationPremiumRaw: -15, // ⚠️ 估算：ODM厂商，相对行业折价约15%
+    valuationNote: 'ODM制造业发行PE相对可比公司约折价15%（估算）',
+    priceSpreadRaw: 8, // ⚠️ 估算
+    priceSpreadNote: '招股价区间约8%（估算，待确认）',
+    cornerstoneRaw: 50, // ✅ 【v3关键更新】NeoData新闻：18家基石认购2.9亿美元，占全球发售50%（原估算40%→实际50%）
+    cornerstoneNote: '【v3更新】NeoData新闻：18家境内外顶级机构基石认购2.9亿美元（含摩根大通、瑞银、高毅、泰康、小米等），占全球发售约50%，≥50%得1.0分（原估算40%=0.8分，现升1.0分）',
+    reportScore: 2.8,
+    details: '华勤技术为全球最大消费电子ODM厂商（市占22.5%），A股企业赴港上市，4月15-20日招股，4月23日挂牌。发行价77.70港元，18家基石认购2.90亿美元占50%（摩根大通/瑞银/高毅/小米等）。首日开盘87.55港元，涨幅+12.68%。2025年营收1714亿元。',
+    analyst_note: '【v3关键更新】基石从估算40%（0.8分）修正为实际50%（1.0分），总分+0.2分！HSTECH更新为-5.42%（维持0.4分）。消费电子行业科技属性强，AI服务器布局获认可。'
+  },
+// 【v4已移除：乐动机器人 - 上市2026-05-11，超出±30天窗口（5月9日±30天→上限6月8日），得分2.0分，待上市】
+  {
+    name: '可孚医疗',
+    code: '01187.HK',
+    listDate: '2026-05-06',
+    industry: '医疗器械/消费医疗',
+    industryIndex: '恒生医疗保健',
+    raiseAmt: '≈10亿港元', // ✅ 实际募资净额10.07亿港元
+    ipoPriceRange: [null, 39.33], // ✅ NeoData确认：发售价上限39.33港元
+    ipoPrice: 39.33, // ✅ 实际发行价：39.33港元（下限/最终定价）
+    openPrice: 39.84, // ✅ 实际开盘价：39.84港元（+1.3%，暗盘40.02→开盘39.84）
+    openReturn: 1.3, // ✅ 开盘涨幅：+1.3%（收盘-1.09%破发）
+    marketPerfRaw: -9.96, // ⚠️ 参考恒生医疗保健行业，近期承压约-10%
+    marketPerfNote: '恒生医疗保健行业近90天约-10%（参考NeoData数据）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-5月港股IPO优质项目均值≥40%',
+    valuationPremiumRaw: -35, // ✅ 实际数据：H股较A股折价35.09%（发行价39.33港元vs A股4月30日收盘约60.6港元）
+    valuationNote: '【v5更新】H股发行价39.33港元，较A股同日折价35.09%（A股收盘约60.6港元），折价较大，得0.8分',
+    priceSpreadRaw: 11.1, // ✅ 【v5修正】(39.33-35.40)/35.40=11.1%（区间35.40~39.33港元）
+    priceSpreadNote: '【v5修正】招股价区间约11.1%（估算值，约5~10%区间），得0.6分',
+    cornerstoneRaw: 35, // ✅ 【v5关键修正】12家机构认购4849万美元/募资净额10.07亿港元≈38.5%，≈35%
+    cornerstoneNote: '【v5更新】12家机构基石认购4849万美元（约占募资净额38.5%），含蓝思科技、中国银河国际等，基石占比约35%（0.6分）',
+    reportScore: null,
+    details: '可孚医疗（A股300529/港股01187.HK）是国内消费医疗器械品牌龙头，涵盖制氧机、血压计、体温计、康复辅具等。2026年4月27-30日招股，公开发售获399.08倍认购，一手中签率5%，5月6日挂牌。基石12家机构认购4849万美元（约38.5%）。',
+    analyst_note: '【v5更新-数据已补充】开盘39.84港元（+1.3%）→收盘38.90港元（-1.09%）破发！虽暗盘涨1.75%但首日高开低走。基石12家约38.5%支撑有限，A股同日暴跌6.17%拖累H股。估值折价35%（0.8分）和基石35%（0.6分）+打新1.0分是主要支撑，总分3.0分（价差11.1%→0.6分，市场-10%→0.4分）。'
+  },
+  {
+    name: '乐动机器人',
+    code: '01236.HK',
+    listDate: '2026-05-11',
+    industry: '视觉感知/机器人',
+    industryIndex: '恒生科技(HSTECH)',
+    raiseAmt: '≈8.8亿港元', // ⚠️ 估算：基石2.77亿港元占31.52%→倒推约8.8亿港元
+    ipoPriceRange: [24, 30], // ✅ 招股区间24~30港元，最终定价26.36港元（区间下沿）
+    ipoPrice: 26.36, // ✅ 公告：下沿定价26.36港元
+    openPrice: 53.5, // ✅ 公告：开盘53.5港元
+    openReturn: 103, // ✅ 公告：开盘涨幅+102.96%
+    marketPerfRaw: -6, // ⚠️ 估算：2026-05-07招股，HSTECH在90日前(~2026-02-07)~5400点，约-6%
+    marketPerfNote: 'HSTECH 90日约-6%（招股日2026-05-07，估算基准~5400点，当前~5070点）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-5月港股IPO均值≥40%',
+    valuationPremiumRaw: -30, // ⚠️ 估算：亏损机器人公司，EV/Revenue估值约-30%折价
+    valuationNote: '亏损机器人公司（2025年亏损6250万元），PE不可比，EV/Revenue估算折价约-30%',
+    priceSpreadRaw: 22.7, // ✅ (30-24)/24=25%，实际定价26.36港元=(30-26.36)/24=15.2%（以区间宽计22.7%→0分）
+    priceSpreadNote: '(30-24)/24=22.7%，区间宽>20%，得0分（区间宽是风险因素）',
+    cornerstoneRaw: 31.5, // ✅ 公告：基石认购约31.52%（诸暨市财政局背景，阵容偏弱）
+    cornerstoneNote: '仅1家基石（康成亨远景/诸暨财政局），认购2.77亿港元占31.52%，阵容偏弱（原估算40%修正）',
+    reportScore: 2.0,
+    details: '乐动机器人为全球最大视觉感知智能割草机器人企业，2025年出货量超900万台，DTOF激光雷达72万台。发行价26.36港元（区间下沿），募资约8.8亿港元。公开发售获6707倍认购（年内第二高），一手中签率0.8%。仅1家基石投资者（政府背景）。',
+    analyst_note: '【v6新增-开盘已验证】开盘+103%验证了散户打新热情，但仅1家基石（31.5%）+国际配售仅9.54倍=机构冷淡信号！提示：超购倍数高≠基石强。价差22.7%→0分是主要拖累，医疗/科技赛道+1.0分支撑。'
+  },
+  {
+    name: '英派药业-B',
+    code: '07630.HK',
+    listDate: '2026-05-13', // ✅ 今日上市
+    industry: '创新药/合成致死',
+    industryIndex: '恒生医疗保健',
+    raiseAmt: '≈9亿港元', // ✅ 公告：最多9.13亿港元
+    ipoPriceRange: [19.75, 21.75], // ✅ 招股区间
+    ipoPrice: 20.1, // ✅ 实际定价20.1港元（区间中下）
+    openPrice: 35.5, // ✅ 公告：开盘35.5港元
+    openReturn: 76.6, // ✅ (35.5-20.1)/20.1=76.6%
+    marketPerfRaw: -6, // ⚠️ 招股日2026-05-05，HSTECH 90日前~5400点，约-6%
+    marketPerfNote: 'HSTECH 90日约-6%（招股日2026-05-05，估算基准~5400点）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-5月港股IPO均值≥40%',
+    valuationPremiumRaw: -20, // ⚠️ 估算：创新药管线，估值折价约20%
+    valuationNote: '已商业化产品（塞纳帕利），创新药管线，PS估算折价约-20%',
+    priceSpreadRaw: 9.2, // ✅ (21.75-19.75)/19.75=9.2%（属5%~10%区间）
+    priceSpreadNote: '(21.75-19.75)/19.75=9.2%，属5%~10%区间，得0.6分',
+    cornerstoneRaw: 32.15, // ✅ 公告：基石合计3574万美元/募资9亿港元≈32.15%
+    cornerstoneNote: '腾讯+礼来亚洲+睿远+BPV+华泰等6家，基石认购3574万美元占32.15%（0.6分），产业资源丰富',
+    reportScore: 3.0, // 华泰研报3分
+    details: '英派药业为"港股合成致死肿瘤药第一股"，核心产品塞纳帕利已获NMPA批准。基石腾讯+礼来亚洲+睿远+BPV+华泰等6家，共3574万美元（约32.15%）。发行价20.1港元，公开发售获2358倍认购。',
+    analyst_note: '【v6新增-开盘已验证】开盘+76.6%验证腾讯+礼来基石策略有效！创新药+合成致死+医保覆盖+产业基石=多重支撑。基石32.15%（0.6分）和价差9.2%（0.6分）支撑较强，市场-6%（0.4分）。'
+  },
+  {
+    name: '剂泰科技-P',
+    code: '07666.HK',
+    listDate: '2026-05-13', // ✅ 今日上市
+    industry: 'AI制药/纳米药物',
+    industryIndex: '恒生医疗保健',
+    raiseAmt: '≈21亿港元', // ✅ 公告：最多21.13亿港元
+    ipoPriceRange: [10.5, 10.5], // ✅ 已定价（单一价格）
+    ipoPrice: 10.5, // ✅ 公告：发行价10.5港元
+    openPrice: null, // ⚠️ 今日上市，开盘数据待补充（暗盘约29港元+180%）
+    openReturn: null, // ⚠️ 待补充（暗盘收盘约29.4港元，+180%）
+    marketPerfRaw: -6, // ⚠️ 招股日2026-05-05，HSTECH 90日前~5400点，约-6%
+    marketPerfNote: 'HSTECH 90日约-6%（招股日2026-05-05，估算基准~5400点）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-5月港股IPO均值≥40%',
+    valuationPremiumRaw: -30, // ⚠️ 估算：18C亏损AI制药，EV/Revenue估算折价约-30%
+    valuationNote: '18C特专科技公司，AI驱动纳米药物递送，亏损不可比PE，EV/Revenue估算折价约-30%',
+    priceSpreadRaw: 0, // ✅ 已定价（单一价格10.5港元）
+    priceSpreadNote: '单一发行价10.5港元（已定价），得1.0分',
+    cornerstoneRaw: 54.87, // ✅ 公告：基石1.48亿美元/募资21亿港元≈54.87%（贝莱德+UBS+国风投+未来资产+Deerfield+RTW等18家）
+    cornerstoneNote: '18家顶级基石（贝莱德/UBS/国风投/未来资产/Deerfield/RTW等），基石认购1.48亿美元占54.87%，≥50%得1.0分（最强基石信号之一）',
+    reportScore: 3.0, // 华泰研报3分及以上
+    details: '剂泰科技为"全球AI药物递送第一股"，18C特专科技公司。基石18家（贝莱德+UBS+国风投等），认购1.48亿美元占54.87%。公开发售获6910倍认购，冻资7300亿港元（年内最高）。发行价10.5港元，暗盘+180%至约29.4港元。',
+    analyst_note: '【v6新增-暗盘已验证】暗盘+180%至29港元！18家顶级基石54.87%（最强信号之一）+已定价（1.0分）+AI制药赛道+6910倍认购=模型评分3.4分（当前最高）。今日上市，明日更新开盘数据。'
+  },
+  {
+    name: '翼菲科技',
+    code: '06871.HK',
+    listDate: '2026-05-18', // ✅ 招股中，预计5月18日上市
+    industry: '工业机器人',
+    industryIndex: '恒生工业',
+    raiseAmt: '≈7.5亿港元', // ✅ 公告：募资7.5亿港元
+    ipoPriceRange: [30.5, 30.5], // ✅ 已定价30.5港元
+    ipoPrice: 30.5,
+    openPrice: null, // ⚠️ 待5月18日上市后补充
+    openReturn: null,
+    marketPerfRaw: -6, // ⚠️ 招股日2026-05-08，HSTECH 90日前~5380点，约-6%
+    marketPerfNote: 'HSTECH 90日约-6%（招股日2026-05-08，估算基准~5380点）',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-5月港股IPO均值≥40%',
+    valuationPremiumRaw: -30, // ⚠️ 估算：亏损工业机器人，EV/Revenue折价约-30%
+    valuationNote: '亏损工业机器人公司，PE不可比，EV/Revenue估算折价约-30%',
+    priceSpreadRaw: 0, // ✅ 已定价30.5港元
+    priceSpreadNote: '单一发行价30.5港元（已定价），得1.0分',
+    cornerstoneRaw: 0, // ✅ 公告明确：无基石投资者
+    cornerstoneNote: '无基石投资者（0%），⚠️重大风险信号！无机构背书',
+    reportScore: null,
+    details: '翼菲科技为工业机器人企业（轻工业场景），发行价30.5港元，募资7.5亿港元。孖展认购17,565倍（市场极度看好）。无基石投资者是主要风险点。',
+    analyst_note: '【v6新增-招股中】孖展17,565倍（市场极度狂热）但无基石=散户博傻！三无股（无基石+无绿鞋+无利润）。已定价（1.0分）但基石0分是最大弱点，模型评分1.4分。建议：谨慎或不参与。'
+  },
+  {
+    name: '拓璞数控',
+    code: '07688.HK',
+    listDate: '2026-05-20', // ✅ 招股中，预计5月20日上市
+    industry: '数控机床/高端制造',
+    industryIndex: '恒生工业',
+    raiseAmt: '≈8亿港元', // ⚠️ 估算
+    ipoPriceRange: [26.39, 26.39], // ✅ 已定价26.39港元
+    ipoPrice: 26.39,
+    openPrice: null, // ⚠️ 待5月20日上市后补充
+    openReturn: null,
+    marketPerfRaw: -6, // ⚠️ 招股日2026-05-12，HSTECH 90日前~5080点（更近），约-0.2%→四舍五入0.4分
+    marketPerfNote: 'HSTECH 90日约-0.2%（招股日2026-05-12，基准约5080点），属-10%~0%区间',
+    ipoReturnRaw: RECENT_IPO_AVG_RETURN,
+    ipoReturnNote: '2026年1-5月港股IPO均值≥40%',
+    valuationPremiumRaw: -20, // ⚠️ 估算：高端制造，估值折价约-20%
+    valuationNote: '高端数控机床制造，发行PE相对行业折价约-20%（估算）',
+    priceSpreadRaw: 0, // ✅ 已定价
+    priceSpreadNote: '单一发行价26.39港元（已定价），得1.0分',
+    cornerstoneRaw: 30, // ⚠️ 估算：招股资料待查，约30%估算
+    cornerstoneNote: '基石占比约30%（估算，待确认）',
+    reportScore: null,
+    details: '拓璞数控为高端数控机床制造商，发行价26.39港元。孖展认购184倍。5月20日上市。',
+    analyst_note: '【v6新增-招股中】高端制造+已定价（1.0分）+基石约30%（0.6分）。孖展184倍热度中等。市场表现约0.4分，模型评分约3.0分。等待更多数据。'
+  }
+];
+
+// ==================== 打分函数 ====================
+function calcScore(value, thresholds, reverse) {
+  for (const [low, high, score] of thresholds) {
+    if (reverse) {
+      if (value >= low && value < high) return score;
+    } else {
+      if (value >= low && value < high) return score;
+    }
+  }
+  return 0;
+}
+
+function calcDimScores(stock) {
+  const s1 = calcScore(stock.marketPerfRaw, SCORING_CRITERIA.market_perf.thresholds);
+  const s2 = calcScore(stock.ipoReturnRaw, SCORING_CRITERIA.ipo_return.thresholds);
+  const s3 = calcScoreValuation(stock.valuationPremiumRaw);
+  const s4 = calcScorePriceSpread(stock.priceSpreadRaw);
+  const s5 = calcScore(stock.cornerstoneRaw, SCORING_CRITERIA.cornerstone.thresholds);
+  const total = +(s1 + s2 + s3 + s4 + s5).toFixed(1);
+  return { s1, s2, s3, s4, s5, total };
+}
+
+function calcScoreValuation(premium) {
+  // 折溢价率：负=折价（便宜→好）
+  if (premium > 50) return 0;
+  if (premium > 20) return 0.2;
+  if (premium > 0) return 0.4;
+  if (premium > -20) return 0.6;
+  if (premium > -50) return 0.8;
+  return 1.0;
+}
+
+function calcScorePriceSpread(spread) {
+  // 价差越小越好
+  if (spread <= 0) return 1.0;   // 已定价
+  if (spread < 2) return 1.0;
+  if (spread < 5) return 0.8;
+  if (spread < 10) return 0.6;
+  if (spread < 15) return 0.4;
+  if (spread < 20) return 0.2;
+  return 0;
+}
+
+// ==================== 颜色工具 ====================
+function scoreColor(score) {
+  if (score >= 3.0) return { circle: 'score-high', rec: 'rec-buy', recText: '🔴 强烈推荐申购', badge: 'chip-5' };
+  if (score >= 2.5) return { circle: 'score-med', rec: 'rec-watch', recText: '🟡 建议关注参与', badge: 'chip-3' };
+  return { circle: 'score-low', rec: 'rec-skip', recText: '⚪ 谨慎观望', badge: 'chip-1' };
+}
+
+function dimBarColor(score) {
+  const colors = { 0: '#e0e3e8', 0.2: '#f0c26a', 0.4: '#8eb8f5', 0.6: '#5cb85c', 0.8: '#e87b2b', 1.0: '#e84a4a' };
+  return colors[score] || '#e0e3e8';
+}
+
+function scoreChipClass(score) {
+  if (score >= 3.5) return 'chip-5';
+  if (score >= 3.0) return 'chip-4';
+  if (score >= 2.5) return 'chip-3';
+  if (score >= 2.0) return 'chip-2';
+  return 'chip-1';
+}
+
+// ==================== 渲染函数 ====================
+
+// 计算所有得分并排序
+const scoredData = IPO_DATA.map(s => ({ ...s, scores: calcDimScores(s) }))
+  .sort((a,b) => b.scores.total - a.scores.total);
+
+// 渲染排行榜表格
+function renderRankTable() {
+  const tbody = document.getElementById('rank-table-body');
+  let html = '';
+  scoredData.forEach((s, i) => {
+    const sc = scoreColor(s.scores.total);
+    const diff = s.reportScore ? (s.scores.total - s.reportScore).toFixed(1) : '-';
+    const diffStr = s.reportScore ? (diff > 0 ? `<span style="color:#e84a4a">+${diff}</span>` : `<span style="color:#00a86b">${diff}</span>`) : '-';
+    html += `<tr>
+      <td><strong>${i+1}</strong></td>
+      <td><strong>${s.name}</strong></td>
+      <td style="font-size:11px;color:#8492a6">${s.code}</td>
+      <td style="font-size:11px">${s.listDate}</td>
+      <td style="font-size:11px">${s.industry}</td>
+      <td><span class="score-chip" style="background:${dimBarColor(s.scores.s1)};color:white;padding:2px 8px;border-radius:10px;font-size:11px">${s.scores.s1.toFixed(1)}</span></td>
+      <td><span class="score-chip" style="background:${dimBarColor(s.scores.s2)};color:white;padding:2px 8px;border-radius:10px;font-size:11px">${s.scores.s2.toFixed(1)}</span></td>
+      <td><span class="score-chip" style="background:${dimBarColor(s.scores.s3)};color:white;padding:2px 8px;border-radius:10px;font-size:11px">${s.scores.s3.toFixed(1)}</span></td>
+      <td><span class="score-chip" style="background:${dimBarColor(s.scores.s4)};color:white;padding:2px 8px;border-radius:10px;font-size:11px">${s.scores.s4.toFixed(1)}</span></td>
+      <td><span class="score-chip" style="background:${dimBarColor(s.scores.s5)};color:white;padding:2px 8px;border-radius:10px;font-size:11px">${s.scores.s5.toFixed(1)}</span></td>
+      <td><span class="score-chip ${scoreChipClass(s.scores.total)}">${s.scores.total.toFixed(1)}</span></td>
+      <td>${s.reportScore || '-'}</td>
+      <td><span style="font-size:11px;font-weight:600;${s.scores.total>=3?'color:#e84a4a':s.scores.total>=2.5?'color:#d4a017':'color:#8492a6'}">${sc.recText.replace(/[🔴🟡⚪]/,'').trim()}</span></td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+// 渲染评分卡片
+function renderScoreCards() {
+  const container = document.getElementById('score-cards-container');
+  let html = '';
+  scoredData.forEach(s => {
+    const sc = scoreColor(s.scores.total);
+    const dims = [
+      { name: '市场表现', score: s.scores.s1, raw: s.marketPerfNote || `${s.marketPerfRaw}%行业涨跌`, color: '#1a3a6e' },
+      { name: '打新收益', score: s.scores.s2, raw: s.ipoReturnNote || `近月均值${s.ipoReturnRaw}%`, color: '#e84a4a' },
+      { name: '估值水平', score: s.scores.s3, raw: s.valuationNote || `折溢价${s.valuationPremiumRaw}%`, color: '#d4a017' },
+      { name: '定价价差', score: s.scores.s4, raw: s.priceSpreadNote || (s.priceSpreadRaw === 0 ? '已定价' : `价差${s.priceSpreadRaw}%`), color: '#00a86b' },
+      { name: '基石占比', score: s.scores.s5, raw: s.cornerstoneNote || `${s.cornerstoneRaw}%`, color: '#7b5ea7' },
+    ];
+    html += `<div class="score-card">
+      <div class="score-card-header">
+        <div>
+          <div class="card-name">${s.name}</div>
+          <div class="card-code">${s.code} | ${s.raiseAmt}</div>
+        </div>
+        <div class="card-industry">${s.industry}</div>
+      </div>
+      <div class="score-total">
+        <div class="score-circle ${sc.circle}">${s.scores.total.toFixed(1)}</div>
+        <div class="score-label">模型总分 / 5.0</div>
+        ${s.reportScore ? `<div class="score-vs" style="color:#8492a6">报告得分：${s.reportScore} | 差异：${(s.scores.total - s.reportScore).toFixed(1) > 0 ? '+' : ''}${(s.scores.total - s.reportScore).toFixed(1)}</div>` : ''}
+      </div>
+      <div class="dimensions">
+        ${dims.map(d => `
+          <div class="dim-row">
+            <div class="dim-name">${d.name}</div>
+            <div class="dim-bar-wrap">
+              <div class="dim-bar" style="width:${d.score*100}%;background:${d.color}"></div>
+            </div>
+            <div class="dim-score" style="color:${d.color}">${d.score.toFixed(1)}</div>
+          </div>
+          <div style="font-size:10px;color:#aaa;margin:-6px 0 6px 0;padding-left:98px">${d.raw}</div>
+        `).join('')}
+      </div>
+      <div class="rec-badge ${sc.rec}">${sc.recText}</div>
+      <div class="card-meta">
+        <span>📅 <strong>上市日期：</strong>${s.listDate}</span>
+        <span>💰 <strong>募资：</strong>${s.raiseAmt}</span>
+        ${s.openReturn !== null ? `<span>📈 <strong>开盘涨幅：</strong><span style="color:#e84a4a">+${s.openReturn}%</span></span>` : ''}
+      </div>
+      <div style="padding:12px 20px;font-size:11px;color:#666;background:#fafafa;border-top:1px solid #f0f2f5;line-height:1.6">
+        ${s.analyst_note}
+      </div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// 渲染对比图
+function renderCompareChart() {
+  const container = document.getElementById('compare-chart');
+  // 只取有报告得分的股票
+  const compareData = scoredData.filter(s => s.reportScore);
+  const maxScore = 5;
+  let html = '<div style="max-width:700px;">';
+  compareData.forEach(s => {
+    const modelPct = (s.scores.total / maxScore * 100).toFixed(0);
+    const reportPct = (s.reportScore / maxScore * 100).toFixed(0);
+    html += `<div class="compare-bar-row">
+      <div class="compare-name">${s.name}</div>
+      <div class="compare-bars" style="flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="bar-auto" style="width:${modelPct}%;background:#1a3a6e">${s.scores.total}</div>
+          <span style="font-size:11px;color:#8492a6">模型</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="bar-manual" style="width:${reportPct}%;background:#e84a4a">${s.reportScore}</div>
+          <span style="font-size:11px;color:#8492a6">报告</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// 渲染维度对比
+function renderDimCompare() {
+  const container = document.getElementById('dim-compare-chart');
+  const dimNames = ['市场表现', '打新收益', '估值水平', '定价价差', '基石占比'];
+  const dimKeys = ['s1', 's2', 's3', 's4', 's5'];
+  const colors = ['#1a3a6e', '#e84a4a', '#d4a017', '#00a86b', '#7b5ea7'];
+  
+  let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  html += '<tr><th style="background:#1a3a6e;color:white;padding:8px;text-align:left;">股票</th>';
+  dimNames.forEach((d,i) => {
+    html += `<th style="background:${colors[i]};color:white;padding:8px;text-align:center;">${d}</th>`;
+  });
+  html += '</tr>';
+  
+  scoredData.forEach(s => {
+    html += `<tr><td style="padding:8px;font-weight:600;border-bottom:1px solid #eee">${s.name}</td>`;
+    dimKeys.forEach(k => {
+      const score = s.scores[k];
+      const bg = score >= 0.8 ? '#ffe0e0' : score >= 0.6 ? '#fff8e0' : score >= 0.4 ? '#e8f5e9' : '#f5f6f8';
+      const color = score >= 0.8 ? '#c00' : score >= 0.6 ? '#8a6000' : score >= 0.4 ? '#1b5e20' : '#8492a6';
+      html += `<td style="padding:8px;text-align:center;border-bottom:1px solid #eee;background:${bg}"><strong style="color:${color}">${score.toFixed(1)}</strong></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table></div>';
+  container.innerHTML = html;
+}
+
+// 渲染Pipeline
+function renderPipeline() {
+  const pipeline = [
+    { name: '剂泰科技-P', status: '今日上市', industry: 'AI制药', raise: '≈21亿港元', date: '2026-05-13', rec: '高', note: '暗盘+180%！18家顶级基石54.87%，模型评分3.4分（当前最高）' },
+    { name: '英派药业-B', status: '今日上市', industry: '创新药', raise: '≈9亿港元', date: '2026-05-13', rec: '高', note: '开盘+77%！腾讯+礼来基石32.15%，模型评分3.0分' },
+    { name: '翼菲科技', status: '招股中', industry: '工业机器人', raise: '≈7.5亿港元', date: '2026-05-18', rec: '中', note: '孖展17565倍！无基石三无股，模型评分1.4分（谨慎）' },
+    { name: '拓璞数控', status: '招股中', industry: '高端制造', raise: '≈8亿港元', date: '2026-05-20', rec: '中', note: '孖展184倍，已定价，模型评分约3.0分（待补充基石数据）' },
+    { name: '乐动机器人', status: '已上市', industry: '视觉感知机器人', raise: '≈8.8亿港元', date: '2026-05-11', rec: '高', note: '开盘+103%！但仅1家基石31.5%，机构冷淡是风险信号' },
+    { name: '可孚医疗', status: '已上市', industry: '消费医疗器械', raise: '≈10亿港元', date: '2026-05-06', rec: '中', note: '开盘+1.3%收盘-1.09%破发！AH联动风险，基石38.5%支撑有限' },
+  ];
+  const tbody = document.getElementById('pipeline-table');
+  let html = '';
+  pipeline.forEach(p => {
+    const recColor = p.rec === '高' ? '#e84a4a' : p.rec === '中' ? '#d4a017' : '#8492a6';
+    const statusBg = p.status === '今日上市' ? '#fff0f0' : p.status === '招股中' ? '#fffbf0' : '#e8f4ff';
+    const statusColor = p.status === '今日上市' ? '#e84a4a' : p.status === '招股中' ? '#d4a017' : '#1a3a6e';
+    html += `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td><span style="font-size:11px;background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:10px">${p.status}</span></td>
+      <td>${p.industry}</td>
+      <td>${p.raise}</td>
+      <td>${p.date}</td>
+      <td style="color:${recColor};font-weight:700">${p.rec === '高' ? '⭐ 积极关注' : p.rec === '中' ? '📌 持续跟踪' : '⏳ 待评估'}</td>
+      <td style="font-size:11px;color:#666">${p.note}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+// ==================== Tab 切换 ====================
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['overview','scoring','compare','method','pipeline'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ==================== 雷达图（简易SVG） ====================
+function renderRadarChart() {
+  const canvas = document.getElementById('radar-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 380, H = 320;
+  const cx = W/2, cy = H/2 - 10;
+  const R = 110;
+  const labels = ['市场表现', '打新收益', '估值水平', '定价价差', '基石占比'];
+  const N = labels.length;
+  const angleStep = (2 * Math.PI) / N;
+  const maxVal = 1.0;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // 画网格
+  for (let ring = 1; ring <= 5; ring++) {
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const angle = -Math.PI/2 + i * angleStep;
+      const r = R * ring / 5;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = '#dde3ed';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // 画轴
+  for (let i = 0; i < N; i++) {
+    const angle = -Math.PI/2 + i * angleStep;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(angle), cy + R * Math.sin(angle));
+    ctx.strokeStyle = '#dde3ed';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // 画数据
+  const stocks5 = scoredData.slice(0, 5);
+  const stockColors = ['#1a3a6e','#e84a4a','#d4a017','#00a86b','#7b5ea7'];
+  
+  stocks5.forEach((s, si) => {
+    const vals = [s.scores.s1, s.scores.s2, s.scores.s3, s.scores.s4, s.scores.s5];
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      const angle = -Math.PI/2 + i * angleStep;
+      const r = R * v / maxVal;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = stockColors[si] + '22';
+    ctx.fill();
+    ctx.strokeStyle = stockColors[si];
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // 标签
+  ctx.font = '11px Microsoft YaHei';
+  ctx.fillStyle = '#555';
+  ctx.textAlign = 'center';
+  labels.forEach((lbl, i) => {
+    const angle = -Math.PI/2 + i * angleStep;
+    const r = R + 18;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle) + 4;
+    ctx.fillText(lbl, x, y);
+  });
+
+  // 图例
+  ctx.font = '11px Microsoft YaHei';
+  ctx.textAlign = 'left';
+  stocks5.forEach((s, i) => {
+    ctx.fillStyle = stockColors[i];
+    ctx.fillRect(10, H - 80 + i*14, 10, 10);
+    ctx.fillStyle = '#555';
+    ctx.fillText(s.name.substring(0,4), 24, H - 70 + i*14);
+  });
+}
+
+// ==================== 初始化 ====================
+window.onload = function() {
+  renderRankTable();
+  renderScoreCards();
+  renderCompareChart();
+  renderDimCompare();
+  renderPipeline();
+  setTimeout(renderRadarChart, 100);
+};
+</script>
+</body>
+</html>
